@@ -1,0 +1,41 @@
+import pandas as pd
+import time
+import numpy as np
+from mlxtend.frequent_patterns import apriori
+from mlxtend.frequent_patterns import association_rules
+import xlwt
+
+df = pd.read_excel("C://Users//vndra//Desktop//Online_Retail.xlsx")
+start = time.time()
+df['Description'] = df['Description'].str.strip()
+df.dropna(axis=0, subset=['InvoiceNo'], inplace=True)
+df['InvoiceNo'] = df['InvoiceNo'].astype('str')
+df = df[~df['InvoiceNo'].str.contains('C')]
+
+basket = (df[df['Country'] =="Australia"]
+          .groupby(['InvoiceNo', 'Description'])['Quantity']
+          .sum().unstack().reset_index().fillna(0)
+         .set_index('InvoiceNo'))          
+   
+
+def encode_units(x):
+    if x <= 0:
+        return 0
+    if x >= 1:
+        return 1
+
+basket_sets = basket.applymap(encode_units)
+basket_sets.drop('POSTAGE', inplace=True, axis=1)                
+
+frequent_itemsets = apriori(basket_sets, min_support=0.08,use_colnames=True)
+
+
+rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1)
+
+pivot_records = pd.pivot_table(rules,values = ['support','confidence','lift'], index= ['antecedents','consequents'], aggfunc = np.mean)
+
+pivot_records.to_excel("C://Users//vndra//Desktop//Online_Retail_results.xlsx")
+
+end = time.time()
+print(end - start)
+
